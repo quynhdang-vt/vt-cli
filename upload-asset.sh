@@ -9,16 +9,16 @@ darkGreen(){ TSTAMP=$(date +"%Y-%m-%d %H:%M:%S"); echo -e "\033[38;5;002m$TSTAMP
 
 #TODO : Define these values
 TOKEN=
-ASSET_FILE
-ASSET_TYPE
-CONTENT_TYPE=
-RECORDING_ID=
+#ASSET_FILE
+ASSET_TYPE="groundtruth"
+CONTENT_TYPE="text/xml"
+#RECORDING_ID=
 
 
 
 CURL_OPTS="-s -k"
 #CURL_OPTS=-v
-GRAPHQ_SERVER=https://api.veritone.com
+GRAPHQL_SERVER=https://api.veritone.com
 GRAPHQL_API_URL=${GRAPHQL_SERVER}/v3/graphql
 green "Using GRAPHQL_API_URL=$GRAPHQL_API_URL"
 OUTDIR=tmpres
@@ -28,11 +28,11 @@ mkdir -p $OUTDIR
 ## Upload filename ($1) as an asset to recording ($2)
 ## -------------------------------------------------------------------------------
 ##
-function uploadAsset{
-    local filename=$1
-    local recording_id=$2
-    local asset_type="human-ground-truth"
-    local content_type="text/xml"
+function uploadAsset () {
+    local filename=$ASSET_FILE
+    local recording_id=$RECORDING_ID
+    local asset_type=$ASSET_TYPE
+    local content_type=$CONTENT_TYPE
     local base_filename=$(basename $filename)
 #    echo -----------------------
     echo Upload Asset GraphQL
@@ -85,9 +85,17 @@ if [ -z $CONTENT_TYPE ]; then
    exit 1
 fi
 if [ -z $RECORDING_ID ]; then
-   echo "Please define RECORDING_ID"
-   exit 1
+   ## infer from the file name without extension
+  f=${ASSET_FILE##*/}
+  RECORDING_ID="${f%.*}"
 fi
 
-uploadAsset $ASSET_FILE $RECORDING_ID $ASSET_TYPE $CONTENT_TYPE
+echo GOT the following:
+echo ASSET_FILE=$ASSET_FILE
+echo ASSET_TYPE=$ASSET_TYPE
+echo CONTENT_TYPE=$CONTENT_TYPE
+echo RECORDING_ID=$RECORDING_ID
+
+#uploadAsset $ASSET_FILE $RECORDING_ID $ASSET_TYPE $CONTENT_TYPE
+uploadAsset
 
