@@ -8,10 +8,11 @@ yellow()   { TSTAMP=$(date +"%Y-%m-%d %H:%M:%S"); echo -e "\033[0;33m$TSTAMP $@$
 darkGreen(){ TSTAMP=$(date +"%Y-%m-%d %H:%M:%S"); echo -e "\033[38;5;002m$TSTAMP $@${NC}";}
 
 #TODO : Define these values
-TOKEN=
+#TOKEN=
 #ASSET_FILE
-ASSET_TYPE="groundtruth"
-CONTENT_TYPE="text/xml"
+#ASSET_TYPE=
+#CONTENT_TYPE=
+#SOURCE
 #RECORDING_ID=
 
 
@@ -29,10 +30,11 @@ mkdir -p $OUTDIR
 ## -------------------------------------------------------------------------------
 ##
 function uploadAsset () {
-    local filename=$ASSET_FILE
-    local recording_id=$RECORDING_ID
-    local asset_type=$ASSET_TYPE
-    local content_type=$CONTENT_TYPE
+    local filename=$1
+    local recording_id=$2
+    local asset_type=$3
+    local content_type=$4
+    local source=$5
     local base_filename=$(basename $filename)
 #    echo -----------------------
     echo Upload Asset GraphQL
@@ -43,16 +45,11 @@ function uploadAsset () {
     if [ -z $AS_URI ];
     then
        ## real streaming here
-       query_string="mutation {createAsset(input:  {containerId:  \"$recording_id\", assetType:\"$asset_type\", contentType:\"$content_type\", fileData:{originalFileUri:\"$filename\"}}){id}}"
+       query_string="mutation {createAsset(input:  {containerId:  \"$recording_id\", assetType:\"$asset_type\", contentType:\"$content_type\", fileData:{originalFileUri:\"$filename\"}jsondata:{source :\"$source\"}}){id signedUri}}"
        echo querystring = ${query_string}
        set -x
        curl ${CURL_OPTS} -XPOST -H "Authorization: Bearer $TOKEN" -o ${asset_result} -F file=@${filename} -F query="${query_string}" ${GRAPHQL_API_URL}
        set +x
-    else
-        echo "Storing FILE as URI"
-        curl ${CURL_OPTS} -H "Authorization: Bearer $TOKEN" -H "Content-type: application/json" -o ${asset_result} \
-            -d '{"query":"mutation {createAsset(input:  {containerId:  \"'$recording_id'\", assetType:\"$asset_type\", contentType:\"$content_type\", uri:\"'$filename'\"}){id}}"}' \
-        ${GRAPHQL_API_URL}
     fi
     cat $asset_result | jq -e '.data.createAsset.id' > /dev/null
     if [ $? -eq 0 ]; then
@@ -60,7 +57,7 @@ function uploadAsset () {
         green "OK. Asset=${local_asset_id} created for Recording=${recording_id}"
     else
         red "Failed to create asset for recording."
-        cat ${$asset_result}
+        cat ${$asset_result} | jq ''
         exit 1
     fi
 }
@@ -77,17 +74,18 @@ if [ -z $ASSET_FILE ]; then
    exit 1
 fi
 if [ -z $ASSET_TYPE ]; then
-   echo "Please define ASSET_TYPE"
-   exit 1
+   ASSET_TYPE='v-human-transcript'
 fi
 if [ -z $CONTENT_TYPE ]; then
-   echo "Please define CONTENT_TYPE"
-   exit 1
+   CONTENT_TYPE='text/plain'
 fi
 if [ -z $RECORDING_ID ]; then
    ## infer from the file name without extension
   f=${ASSET_FILE##*/}
   RECORDING_ID="${f%.*}"
+fi
+if [ -z $SOURCE ]; then
+  SOURCE='human-transcript'
 fi
 
 echo GOT the following:
@@ -95,7 +93,7 @@ echo ASSET_FILE=$ASSET_FILE
 echo ASSET_TYPE=$ASSET_TYPE
 echo CONTENT_TYPE=$CONTENT_TYPE
 echo RECORDING_ID=$RECORDING_ID
+echo SOURCE=$SOURCE
 
-#uploadAsset $ASSET_FILE $RECORDING_ID $ASSET_TYPE $CONTENT_TYPE
-uploadAsset
+uploadAsset $ASSET_FILE $RECORDING_ID $ASSET_TYPE $CONTENT_TYPE $SOURCE
 
